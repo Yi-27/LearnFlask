@@ -1,6 +1,7 @@
-from flask import Flask, escape, url_for, request, render_template, Markup, make_response
+from flask import Flask, escape, url_for, request, render_template, Markup, make_response, redirect, abort, jsonify
 import settings
 from werkzeug.utils import secure_filename
+from bean.User import *
 
 app = Flask(__name__)  # __name__  表示模块名
 app.config.from_object(settings)
@@ -78,6 +79,55 @@ def cookie():
     # 设置cookies
     resp.set_cookie('username', 'the username')  # 在这个响应中添加cookie
     return resp
+
+
+@app.route("/redirect", methods=["POST", "GET"])
+def redirect_to_login():
+    # 看看cookie中有没有username，没有说明没登录，就重定向到登录页面
+    if request.cookies.get("username"):
+        abort(401)  # 提前中断 401 表示没有权限
+        print("这句话没打印出来")
+    else:
+        # 这里就用到了url_for来构建URL 开头没有 /
+        return redirect(url_for("login"))
+
+
+# 定制出错页面
+@app.errorhandler(404)
+def page_not_found(error):
+    # 返回自定义的友好的404页面，并指定状态码404,（默认是200
+    
+    resp = make_response(render_template('page404.html'), 404)
+    print(type(resp))  # <class 'flask.wrappers.Response'>
+    # 可以给响应对象添加响应头
+    resp.headers['MyKey'] = "MyValue"  # 自定义的头信息
+    
+    # 可以添加cookies
+    resp.set_cookie("cookieKey", "cookieValue")
+    resp.set_cookie("cookieKey2", "cookieValue2")
+    
+    # 将最中的响应返回出去
+    return resp
+
+
+@app.route("/json", methods=["POST", "GET"])
+def ret_json():
+    return {
+        "username": "Jiyou",
+        "theme": "black",
+        "age": 20
+    }
+
+@app.route("/users", methods=["POST", "GET"])
+def users():
+    users = [User("gakki", 32), User("shiyuan", 35), User()]
+    user_list = [user.to_dict() for user in users]
+    print(user_list)
+    # [{'name': 'gakki', 'age': 32}, {'name': 'shiyuan', 'age': 35}, {'name': '纪莜', 'age': 22}]
+    user_json = jsonify(user_list)
+    print(user_json)  #     <Response 149 bytes [200 OK]>
+    print(type(user_json))  # <class 'flask.wrappers.Response'>
+    return jsonify(user_list)  # 会自动将字典和列表转换成JSON字符串
 
 if __name__ == '__main__':
     app.run()
